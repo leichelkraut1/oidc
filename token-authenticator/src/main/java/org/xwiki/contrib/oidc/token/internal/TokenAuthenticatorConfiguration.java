@@ -19,10 +19,17 @@
  */
 package org.xwiki.contrib.oidc.token.internal;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.regex.Pattern;
+
 import javax.inject.Singleton;
 
+import org.apache.commons.lang3.StringUtils;
 import org.xwiki.component.annotation.Component;
 import org.xwiki.contrib.oidc.internal.OIDCConfiguration;
+import org.xwiki.contrib.usercommon.formatter.UserFormatterFactory;
 
 /**
  * Various OpenID Connect authenticator configurations.
@@ -50,6 +57,50 @@ public class TokenAuthenticatorConfiguration extends OIDCConfiguration
     private static final String PROP_AUTHENTICATOR_LEGACY = OIDCConfiguration.PREFIX_PROP + "provider.authenticator";
 
     /**
+     * The prefix of the properties about access tokens issued by external providers.
+     *
+     * @since 2.31.0
+     */
+    public static final String PREFIX_PROP_EXTERNAL = PREFIX_PROP + "external.";
+
+    /**
+     * The issuers (as in the tokens' "iss" claim) whose access tokens are accepted.
+     *
+     * @since 2.31.0
+     */
+    public static final String PROP_EXTERNAL_ISSUERS = PREFIX_PROP_EXTERNAL + "issuers";
+
+    /**
+     * The accepted audiences (the tokens' "aud" claim).
+     *
+     * @since 2.31.0
+     */
+    public static final String PROP_EXTERNAL_AUDIENCES = PREFIX_PROP_EXTERNAL + "audiences";
+
+    /**
+     * The scopes an access token must have (in its "scope" or "scp" claim).
+     *
+     * @since 2.31.0
+     */
+    public static final String PROP_EXTERNAL_SCOPES = PREFIX_PROP_EXTERNAL + "scopes";
+
+    /**
+     * The format of the subject that identifies the user of an access token.
+     *
+     * @since 2.31.0
+     */
+    public static final String PROP_EXTERNAL_SUBJECTFORMATER = PREFIX_PROP_EXTERNAL + "subjectFormater";
+
+    // The OpenID Connect Authenticator's properties, so a token maps to the same user as the browser sign-in.
+    private static final String PROP_USER_SUBJECTFORMATER = "oidc.user.subjectFormater";
+
+    private static final String PROP_USER_SUBJECTFORBIDDENPATTERN = "oidc.user.subjectForbiddenPattern";
+
+    private static final String PROP_USER_SUBJECTFORBIDDENREPLACEMENT = "oidc.user.subjectForbiddenReplacement";
+
+    private static final String DEFAULT_USER_SUBJECTFORMATER = "${oidc.user.subject}";
+
+    /**
      * @return the authenticator to fallback to
      */
     public String getAuthenticator()
@@ -62,5 +113,87 @@ public class TokenAuthenticatorConfiguration extends OIDCConfiguration
         }
 
         return authenticator;
+    }
+
+    /**
+     * @return the issuers whose access tokens are accepted, empty to accept none
+     * @since 2.31.0
+     */
+    public List<String> getExternalIssuers()
+    {
+        return getList(PROP_EXTERNAL_ISSUERS);
+    }
+
+    /**
+     * @return the accepted values of the access tokens' "aud" claim; a token matches if it has one of them
+     * @since 2.31.0
+     */
+    public List<String> getExternalAudiences()
+    {
+        return getList(PROP_EXTERNAL_AUDIENCES);
+    }
+
+    /**
+     * @return the scopes an access token must all have, empty to require none
+     * @since 2.31.0
+     */
+    public List<String> getExternalScopes()
+    {
+        return getList(PROP_EXTERNAL_SCOPES);
+    }
+
+    /**
+     * @return the format of the subject that identifies the user of an access token, by default the one the OpenID
+     *         Connect Authenticator uses ({@code oidc.user.subjectFormater})
+     * @since 2.31.0
+     */
+    public String getExternalSubjectFormater()
+    {
+        String format = getProperty(PROP_EXTERNAL_SUBJECTFORMATER, (String) null);
+        if (StringUtils.isEmpty(format)) {
+            format = getProperty(PROP_USER_SUBJECTFORMATER, (String) null);
+        }
+
+        return StringUtils.isEmpty(format) ? DEFAULT_USER_SUBJECTFORMATER : format;
+    }
+
+    /**
+     * @return the characters removed from the subject, like the OpenID Connect Authenticator does
+     * @since 2.31.0
+     */
+    public Pattern getSubjectForbiddenPattern()
+    {
+        String regex = getProperty(PROP_USER_SUBJECTFORBIDDENPATTERN, (String) null);
+
+        return StringUtils.isEmpty(regex) ? UserFormatterFactory.DEFAULT_FORBIDDEN_PATTERN : Pattern.compile(regex);
+    }
+
+    /**
+     * @return the replacement of the forbidden characters in the subject
+     * @since 2.31.0
+     */
+    public String getSubjectForbiddenReplacement()
+    {
+        String replacement = getProperty(PROP_USER_SUBJECTFORBIDDENREPLACEMENT, (String) null);
+
+        return StringUtils.isEmpty(replacement) ? UserFormatterFactory.DEFAULT_FORBIDDEN_REPLACEMENT : replacement;
+    }
+
+    private List<String> getList(String key)
+    {
+        List<?> values = getProperty(key, List.class);
+        if (values == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> list = new ArrayList<>();
+        for (Object value : values) {
+            String trimmed = StringUtils.trimToNull(String.valueOf(value));
+            if (trimmed != null) {
+                list.add(trimmed);
+            }
+        }
+
+        return list;
     }
 }
