@@ -1,3 +1,5 @@
 org.xwiki.contrib.oidc.token.internal.TokenAuthenticator
 org.xwiki.contrib.oidc.token.internal.TokenAuthenticatorComponent
 org.xwiki.contrib.oidc.token.internal.TokenAuthenticatorConfiguration
+org.xwiki.contrib.oidc.token.internal.ExternalTokenAuthenticator
+org.xwiki.contrib.oidc.token.internal.ExternalTokenValidator

@@ -22,9 +22,11 @@ package org.xwiki.contrib.oidc.token;
 import java.security.Principal;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xwiki.classloader.ClassLoaderManager;
+import org.xwiki.contrib.oidc.token.internal.ExternalTokenAuthenticator;
 import org.xwiki.contrib.oidc.token.internal.TokenAuthenticator;
 import org.xwiki.contrib.oidc.token.internal.TokenAuthenticatorConfiguration;
 
@@ -51,6 +53,8 @@ public class TokenAuthService implements XWikiAuthService
     private TokenAuthenticator oidcAuthenticator = Utils.getComponent(TokenAuthenticator.class);
 
     private TokenAuthenticatorConfiguration configuration = Utils.getComponent(TokenAuthenticatorConfiguration.class);
+
+    private ExternalTokenAuthenticator externalAuthenticator = Utils.getComponent(ExternalTokenAuthenticator.class);
 
     /**
      * @return the configured "real" authenticator to fallback to when there is no token
@@ -118,6 +122,18 @@ public class TokenAuthService implements XWikiAuthService
             }
         } catch (Exception e) {
             LOGGER.debug("Failed to get OIDC user from HTTP authorization [" + authorization + "]", e);
+        }
+
+        try {
+            XWikiUser user = this.externalAuthenticator.checkAuth(authorization);
+
+            if (user != null) {
+                return user;
+            }
+        } catch (Exception e) {
+            // Never log the token itself.
+            LOGGER.info("Refused an access token of an external provider: {}", ExceptionUtils.getRootCauseMessage(e));
+            LOGGER.debug("Full error", e);
         }
 
         return getAuthService().checkAuth(context);
